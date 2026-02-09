@@ -34,7 +34,15 @@ class TestOnlyPasswordController {
   ResponseEntity<Void> setPassword(@Valid @RequestBody SetPasswordRequest req) {
     User user = userRepository.findByPhone(req.phone());
     if (user == null) {
-      user = userRepository.save(User.create(req.phone()));
+      try {
+        user = userRepository.createIfAbsent(req.phone(), null);
+      } catch (AuthConflictException ignored) {
+        user = userRepository.findByPhone(req.phone());
+      }
+    }
+
+    if (user == null) {
+      throw new AuthException("用户不存在");
     }
 
     userRepository.save(user.withPasswordHash(passwordService.hash(req.password())));

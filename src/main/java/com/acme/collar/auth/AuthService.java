@@ -30,7 +30,16 @@ class AuthService {
 
     User user = userRepository.findByPhone(phone);
     if (user == null) {
-      user = userRepository.save(User.create(phone));
+      try {
+        user = userRepository.createIfAbsent(phone, null);
+      } catch (AuthConflictException ignored) {
+        // 并发登录：另一个请求刚创建成功，回读即可
+        user = userRepository.findByPhone(phone);
+      }
+    }
+
+    if (user == null) {
+      throw new AuthException("用户不存在");
     }
 
     return new AuthResponse(jwtService.issueAccessToken(user));
@@ -50,12 +59,7 @@ class AuthService {
   }
 
   AuthResponse registerWithPassword(String phone, String password) {
-    User existing = userRepository.findByPhone(phone);
-    if (existing != null) {
-      throw new AuthConflictException("手机号已注册");
-    }
-
-    User user = userRepository.save(User.create(phone).withPasswordHash(passwordService.hash(password)));
+    User user = userRepository.createIfAbsent(phone, passwordService.hash(password));
     return new AuthResponse(jwtService.issueAccessToken(user));
   }
 
@@ -73,14 +77,9 @@ class AuthService {
   }
 
   AuthResponse registerWithSms(String phone, String code, String password) {
-    User existing = userRepository.findByPhone(phone);
-    if (existing != null) {
-      throw new AuthConflictException("手机号已注册");
-    }
-
     smsService.verifyLoginCodeByPhone(phone, code);
 
-    User user = userRepository.save(User.create(phone).withPasswordHash(passwordService.hash(password)));
+    User user = userRepository.createIfAbsent(phone, passwordService.hash(password));
     return new AuthResponse(jwtService.issueAccessToken(user));
   }
 }

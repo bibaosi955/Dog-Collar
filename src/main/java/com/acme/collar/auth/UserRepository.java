@@ -6,5 +6,14 @@ interface UserRepository {
 
   User findById(long id);
 
+  /**
+   * 原子创建用户：
+   * <ul>
+   *   <li>若 phone 未注册，则创建新用户并返回</li>
+   *   <li>若 phone 已注册，则抛出冲突异常（由统一异常处理映射为 409）</li>
+   * </ul>
+   */
+  User createIfAbsent(String phone, String passwordHash);
+
   User save(User user);
 }

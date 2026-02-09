@@ -48,7 +48,14 @@ class AuthController {
     if (principal == null) {
       throw new AuthUnauthorizedException("未登录");
     }
-    long userId = Long.parseLong(principal.getName());
+
+    long userId;
+    try {
+      userId = Long.parseLong(principal.getName());
+    } catch (NumberFormatException e) {
+      // 统一走鉴权失败：避免 bad principal 导致 500
+      throw new AuthUnauthorizedException("未登录");
+    }
     authService.changePassword(userId, req.oldPassword(), req.newPassword());
     return ResponseEntity.ok().build();
   }

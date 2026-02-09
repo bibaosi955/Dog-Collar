@@ -34,5 +34,13 @@ class SmsLoginDefaultProfileTest {
                 .content(
                     "{\"challengeId\":\"dummy\",\"phone\":\"13800000000\",\"code\":\"000000\"}"))
         .andExpect(status().isNotImplemented());
+
+    mockMvc
+        .perform(
+            post("/auth/register/sms")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"phone\":\"13800000000\",\"code\":\"000000\",\"password\":\"P@ssw0rd!\"}"))
+        .andExpect(status().isNotImplemented());
   }
 }
