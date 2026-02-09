@@ -95,6 +95,35 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-java</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <failFast>true</failFast>
+              <rules>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                  <message>
+                    需要 JDK 21+ 才能构建本项目（目标字节码版本为 21）。
+                    
+                    解决办法（macOS/Homebrew 示例）：
+                      brew install openjdk@21
+                      export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+                      export PATH="$JAVA_HOME/bin:$PATH"
+                      java -version
+                  </message>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
       </plugin>
