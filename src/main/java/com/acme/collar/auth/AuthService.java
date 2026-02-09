@@ -48,4 +48,39 @@ class AuthService {
 
     return new AuthResponse(jwtService.issueAccessToken(user));
   }
+
+  AuthResponse registerWithPassword(String phone, String password) {
+    User existing = userRepository.findByPhone(phone);
+    if (existing != null) {
+      throw new AuthConflictException("手机号已注册");
+    }
+
+    User user = userRepository.save(User.create(phone).withPasswordHash(passwordService.hash(password)));
+    return new AuthResponse(jwtService.issueAccessToken(user));
+  }
+
+  void changePassword(long userId, String oldPassword, String newPassword) {
+    User user = userRepository.findById(userId);
+    if (user == null) {
+      throw new AuthException("用户不存在");
+    }
+
+    if (!passwordService.matches(oldPassword, user.passwordHash())) {
+      throw new AuthException("旧密码错误");
+    }
+
+    userRepository.save(user.withPasswordHash(passwordService.hash(newPassword)));
+  }
+
+  AuthResponse registerWithSms(String phone, String code, String password) {
+    User existing = userRepository.findByPhone(phone);
+    if (existing != null) {
+      throw new AuthConflictException("手机号已注册");
+    }
+
+    smsService.verifyLoginCodeByPhone(phone, code);
+
+    User user = userRepository.save(User.create(phone).withPasswordHash(passwordService.hash(password)));
+    return new AuthResponse(jwtService.issueAccessToken(user));
+  }
 }

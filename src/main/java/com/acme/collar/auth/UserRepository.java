@@ -4,5 +4,7 @@ package com.acme.collar.auth;
 interface UserRepository {
   User findByPhone(String phone);
 
+  User findById(long id);
+
   User save(User user);
 }

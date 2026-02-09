@@ -17,6 +17,7 @@ class SmsService {
 
   // v1 stub：验证码存在内存中。后续可替换为 Redis，并接入真实短信通道。
   private final Map<String, ChallengeEntry> challenges = new ConcurrentHashMap<>();
+  private final Map<String, String> phoneToLatestChallengeId = new ConcurrentHashMap<>();
   private final Map<String, Instant> phoneToLastSendAt = new ConcurrentHashMap<>();
   private final Clock clock;
   private final Environment env;
@@ -51,9 +52,24 @@ class SmsService {
     challenges.put(
         challengeId,
         new ChallengeEntry(phone, "000000", now.plus(CODE_TTL), new AtomicInteger(0)));
+    phoneToLatestChallengeId.put(phone, challengeId);
     phoneToLastSendAt.put(phone, now);
 
     return new SendResult(challengeId, CODE_TTL);
+  }
+
+  void verifyLoginCodeByPhone(String phone, String code) {
+    if (!env.acceptsProfiles("test")) {
+      throw new UnsupportedOperationException("未配置短信通道");
+    }
+
+    String challengeId = phoneToLatestChallengeId.get(phone);
+    if (challengeId == null || challengeId.isBlank()) {
+      throw new AuthException("验证码不存在或已过期");
+    }
+
+    verifyLoginCode(challengeId, phone, code);
+    phoneToLatestChallengeId.remove(phone);
   }
 
   void verifyLoginCode(String challengeId, String phone, String code) {
