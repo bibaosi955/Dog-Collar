@@ -1,0 +1,6 @@
+.worktrees/
+worktrees/
+target/
+.idea/
+.vscode/
+.DS_Store
