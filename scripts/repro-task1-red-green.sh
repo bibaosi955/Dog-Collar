@@ -104,10 +104,15 @@ java_major_version_of() {
 }
 
 find_java21_home() {
-  # 优先级：JAVA21_HOME -> /usr/libexec/java_home -v 21（macOS）
   # 返回：可用的 JDK 21 JAVA_HOME；否则返回空
+  # 探测优先级（按需求）：
+  # 1) JAVA_HOME（若已是 21）
+  # 2) /usr/libexec/java_home -v 21（macOS）
+  # 3) Homebrew 路径（Apple Silicon 常见）：/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+  # 兼容：最后再尝试旧用法 JAVA21_HOME（若用户仍在使用）
   local cand
-  cand="${JAVA21_HOME-}"
+
+  cand="${JAVA_HOME-}"
   if [ -n "${cand}" ] && [ -x "${cand}/bin/java" ]; then
     if [ "$(java_major_version_of "${cand}/bin/java")" = "21" ]; then
       printf '%s' "${cand}"
@@ -122,6 +127,22 @@ find_java21_home() {
         printf '%s' "${cand}"
         return 0
       fi
+    fi
+  fi
+
+  cand="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+  if [ -x "${cand}/bin/java" ]; then
+    if [ "$(java_major_version_of "${cand}/bin/java")" = "21" ]; then
+      printf '%s' "${cand}"
+      return 0
+    fi
+  fi
+
+  cand="${JAVA21_HOME-}"
+  if [ -n "${cand}" ] && [ -x "${cand}/bin/java" ]; then
+    if [ "$(java_major_version_of "${cand}/bin/java")" = "21" ]; then
+      printf '%s' "${cand}"
+      return 0
     fi
   fi
 
@@ -188,6 +209,8 @@ run_expected_red() {
 }
 
 run_green_if_java21() {
+  _REPRO_GREEN_RAN="0"
+
   say "=== 环境信息 ==="
   say "[信息] java -version："
   java -version 2>&1 || true
@@ -207,8 +230,9 @@ run_green_if_java21() {
     say "=== Green 阶段（跳过）==="
     say "[提示] 当前 Java 主版本为：${major:-未知}，不是 21，且未找到可用的 JDK 21。"
     say "[提示] 本项目需要 Java 21 才能验证 green。"
-    say "[提示] 如本机已安装 JDK 21，可通过设置 JAVA21_HOME 指定其路径后重试。"
-    say "[提示] CI 已配置 temurin 21，会执行 ./mvnw -q test 提供 green 证据。"
+    say "[提示] 未能在本机验证 green（脚本将以退出码 0 结束）。"
+    say "[提示] 可尝试：安装 JDK 21，并让 /usr/libexec/java_home -v 21 可用，或安装 Homebrew openjdk@21。"
+    say "[提示] 或临时指定：JAVA_HOME=<JDK21_HOME> PATH=\"$JAVA_HOME/bin:$PATH\" 后重试。"
     return 0
   fi
 
@@ -217,11 +241,15 @@ run_green_if_java21() {
     say "[步骤] 使用当前 Java 21 运行 ./mvnw -q test。"
   else
     say "[步骤] 使用检测到的 JDK 21 运行 ./mvnw -q test。"
-    say "[信息] JAVA21_HOME=${java21_home}"
+    say "[信息] JAVA_HOME=${java21_home}"
+    say "[信息] ${java21_home}/bin/java -version："
+    "${java21_home}/bin/java" -version 2>&1 || true
   fi
 
   local out
   local rc
+
+  _REPRO_GREEN_RAN="1"
 
   if [ "${major}" = "21" ]; then
     out="$(./mvnw -q test 2>&1)"
@@ -238,7 +266,11 @@ run_green_if_java21() {
     say "[结果] 退出码：${rc}（未通过）。"
   fi
   say "[结果] 输出摘要（截取末尾关键行）："
-  printf '%s\n' "${out}" | tail -n 25
+  if [ -n "${out}" ]; then
+    printf '%s\n' "${out}" | tail -n 25
+  else
+    say "<无输出（-q 模式常见）；以退出码为准>"
+  fi
 
   return ${rc}
 }
@@ -252,13 +284,21 @@ main() {
 
   # 重要：先完成 clean worktree 检查，再写入文件，避免误报。
   : >"${output_file}"
-  exec > >(tee -a "${output_file}") 2>&1
+  # 说明：日志里可能出现开发用的随机密码等信息；这里做最小脱敏，保证可提交。
+  exec > >(sed -E 's/^(Using generated security password:).*/\1 <REDACTED>/' | tee -a "${output_file}") 2>&1
 
   say "说明：以下为在本机实际执行 \`bash scripts/repro-task1-red-green.sh\` 的输出摘要（去除敏感信息）。"
   say
 
   run_expected_red
   run_green_if_java21
+  local green_rc
+  green_rc=$?
+  if [ "${_REPRO_GREEN_RAN-0}" = "1" ]; then
+    exit ${green_rc}
+  fi
+
+  exit 0
 }
 
 main "$@"

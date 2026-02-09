@@ -4,7 +4,7 @@
 [步骤] 临时将 mvnw 重命名为 mvnw.__bak，然后尝试运行 ./mvnw -q test。
 [结果] 退出码：127（预期为非 0）。
 [结果] 失败摘要（截取关键行）：
-scripts/repro-task1-red-green.sh: line 176: ./mvnw: No such file or directory
+scripts/repro-task1-red-green.sh: line 197: ./mvnw: No such file or directory
 [完成] red 阶段失败为预期行为，脚本将继续执行。
 
 === 环境信息 ===
@@ -13,12 +13,48 @@ java version "17.0.11" 2024-04-16 LTS
 Java(TM) SE Runtime Environment (build 17.0.11+7-LTS-207)
 Java HotSpot(TM) 64-Bit Server VM (build 17.0.11+7-LTS-207, mixed mode, sharing)
 
-=== Green 阶段（跳过）===
-[提示] 当前 Java 主版本为：17，不是 21，且未找到可用的 JDK 21。
-[提示] 本项目需要 Java 21 才能验证 green。
-[提示] 如本机已安装 JDK 21，可通过设置 JAVA21_HOME 指定其路径后重试。
-[提示] CI 已配置 temurin 21，会执行 ./mvnw -q test 提供 green 证据。
+=== Green 阶段（应通过）===
+[步骤] 使用检测到的 JDK 21 运行 ./mvnw -q test。
+[信息] JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+[信息] /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java -version：
+openjdk version "21.0.10" 2026-01-20
+OpenJDK Runtime Environment Homebrew (build 21.0.10)
+OpenJDK 64-Bit Server VM Homebrew (build 21.0.10, mixed mode, sharing)
+[结果] 退出码：0（通过）。
+[PASS] ./mvnw -q test 在 Java 21 下通过。
+[结果] 输出摘要（截取末尾关键行）：
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.7)
+
+2026-02-09T17:16:59.938+08:00  INFO 54497 --- [           main] com.acme.collar.AppSmokeTest             : Starting AppSmokeTest using Java 21.0.10 with PID 54497 (started by shiguodong in /Users/shiguodong/Documents/AI/opencode/superpowers/Dog-Collar/.worktrees/dog-collar-v1)
+2026-02-09T17:16:59.939+08:00  INFO 54497 --- [           main] com.acme.collar.AppSmokeTest             : No active profile set, falling back to 1 default profile: "default"
+2026-02-09T17:17:00.200+08:00  INFO 54497 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-02-09T17:17:00.201+08:00  INFO 54497 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-02-09T17:17:00.215+08:00  INFO 54497 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+2026-02-09T17:17:00.664+08:00  WARN 54497 --- [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: <REDACTED>
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-02-09T17:17:00.675+08:00  INFO 54497 --- [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-02-09T17:17:00.725+08:00  INFO 54497 --- [           main] com.acme.collar.AppSmokeTest             : Started AppSmokeTest in 0.903 seconds (process running for 1.307)
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A Java agent has been loaded dynamically (/Users/shiguodong/.m2/repository/net/bytebuddy/byte-buddy-agent/1.14.19/byte-buddy-agent-1.14.19.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
 
 ----
 
-本机 JDK 探测：仅发现 Java 8（/Library/Java/JavaVirtualMachines/jdk1.8.0_211.jdk），因此 green 阶段留给 CI（temurin 21）提供证据。
+说明：以下为额外手动执行 JDK 21 验证命令的关键输出摘要。
+
+命令：JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home PATH="$JAVA_HOME/bin:$PATH" ./mvnw -q test
+
+[结果] 退出码：0（通过）。
+[关键信息] 启动日志包含：Starting AppSmokeTest using Java 21.0.10
+[提示] 手动运行输出中可能包含开发用随机密码；此处仅保留与 Java 版本和通过结果相关的摘要。
