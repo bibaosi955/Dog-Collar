@@ -3,3 +3,5 @@ spring:
     exclude:
       # 骨架阶段不引入数据库，避免因未配置数据源导致启动失败
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration

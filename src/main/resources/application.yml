@@ -1,3 +1,11 @@
 spring:
   application:
     name: dog-collar
+
+  flyway:
+    enabled: true
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dog_collar
+    username: dog_collar
+    password: dog_collar
