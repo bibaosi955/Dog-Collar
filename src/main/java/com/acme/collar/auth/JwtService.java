@@ -3,8 +3,6 @@ package com.acme.collar.auth;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -36,23 +34,19 @@ public class JwtService {
     }
 
     // v1：用配置字符串生成 HMAC key。
-    // 注意：JJWT 对 HS256 要求 key 至少 256 bits（32 bytes）。若 secret 过短，这里用 SHA-256 派生固定长度 key。
+    // 注意：JJWT 对 HS256 要求 key 至少 256 bits（32 bytes）。非 test profile 必须提供足够强的 secret。
     byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
-    if (raw.length < 32) {
-      raw = sha256(raw);
+    if (!env.acceptsProfiles("test") && raw.length < 32) {
+      throw new IllegalStateException(
+          "security.jwt.secret 强度不足：至少需要 32 bytes（建议 48+），当前为 "
+              + raw.length
+              + " bytes。"
+              + "请使用随机生成的长 secret（例如 48+ 字节的 base64 字符串）。");
     }
 
     this.key = Keys.hmacShaKeyFor(raw);
     this.accessTtl = accessTtl;
     this.clock = Clock.systemUTC();
-  }
-
-  private static byte[] sha256(byte[] input) {
-    try {
-      return MessageDigest.getInstance("SHA-256").digest(input);
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("缺少 SHA-256 算法实现", e);
-    }
   }
 
   String issueAccessToken(User user) {

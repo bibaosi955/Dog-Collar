@@ -31,6 +31,24 @@ class AuthFlowTest {
   }
 
   @Test
+  void smsSend_withInvalidBearerToken_shouldNotReturn401() throws Exception {
+    // permitAll 接口不应被坏 token 阻塞（避免“带坏 token 无法登录/发码”）
+    // 这里不强依赖业务状态码（例如限流可能返回 400），只要不是 401 即可。
+    int status =
+        mockMvc
+            .perform(
+                post("/auth/sms/send")
+                    .header("Authorization", "Bearer invalid.token.value")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"phone\":\"13800000001\"}"))
+            .andReturn()
+            .getResponse()
+            .getStatus();
+
+    org.junit.jupiter.api.Assertions.assertNotEquals(401, status);
+  }
+
+  @Test
   void smsLogin_shouldReturnAccessToken() throws Exception {
     MvcResult sendResult =
         mockMvc

@@ -31,6 +31,8 @@ class JwtAuthFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
+    String path = request.getRequestURI();
+
     String header = request.getHeader(HttpHeaders.AUTHORIZATION);
     if (header != null && header.startsWith("Bearer ")) {
       String token = header.substring("Bearer ".length()).trim();
@@ -46,10 +48,14 @@ class JwtAuthFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(auth);
           }
         } catch (JwtException ignored) {
-          // token 无效：直接 401，并记录原因（debug）
-          log.debug("JWT token 无效: {}", ignored.getMessage());
-          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-          return;
+          // token 无效：permitAll 路径不应被坏 token 阻塞（例如 /auth/**）
+          if (path != null && path.startsWith("/auth/")) {
+            log.debug("JWT token 无效，但路径允许匿名访问({}): {}", path, ignored.getMessage());
+          } else {
+            log.debug("JWT token 无效: {}", ignored.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+          }
         }
       }
     }
