@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -u
 
+OUTPUT_FILE_DEFAULT="docs/dev-notes/task1-repro-output.txt"
+
 say() {
   printf '%s\n' "$*"
 }
@@ -19,6 +21,12 @@ need_clean_worktree() {
   # - 若存在未暂存的已跟踪文件变更：退出非 0
   # - 若存在未跟踪文件：退出非 0
   # - 允许已暂存变更（用于先 git add，再运行脚本，最后一次性 commit）
+  # - 允许通过 REPRO_ALLOW_DIRTY=1 跳过检查（用于 CI 或一次性修复场景）
+
+  if [ "${REPRO_ALLOW_DIRTY-}" = "1" ]; then
+    say "[提示] REPRO_ALLOW_DIRTY=1：跳过 clean worktree 检查。"
+    return 0
+  fi
 
   if ! git diff --quiet; then
     say "[提示] 工作区不干净（存在未暂存的已跟踪文件变更）。"
@@ -61,6 +69,63 @@ java_major_version() {
   # 兼容 1.8 这种
   v="$(printf '%s' "$first_line" | sed -n 's/.*version "1\.\([0-9][0-9]*\)\..*".*/\1/p')"
   printf '%s' "$v"
+}
+
+java_major_version_of() {
+  # 参数：java 可执行文件路径
+  # 输出：主版本号（例如 21 / 17 / 8）；失败返回空字符串
+  local java_cmd
+  java_cmd="$1"
+  if [ -z "${java_cmd}" ] || [ ! -x "${java_cmd}" ]; then
+    echo ""
+    return 0
+  fi
+
+  local first_line
+  if ! first_line="$(${java_cmd} -version 2>&1 | head -n 1)"; then
+    echo ""
+    return 0
+  fi
+
+  local v
+  v="$(printf '%s' "$first_line" | sed -n 's/.*version "\([0-9][0-9]*\)\..*".*/\1/p')"
+  if [ -n "$v" ]; then
+    printf '%s' "$v"
+    return 0
+  fi
+
+  v="$(printf '%s' "$first_line" | sed -n 's/.*version "1\.\([0-9][0-9]*\)\..*".*/\1/p')"
+  if [ -n "$v" ]; then
+    printf '%s' "$v"
+    return 0
+  fi
+
+  echo ""
+}
+
+find_java21_home() {
+  # 优先级：JAVA21_HOME -> /usr/libexec/java_home -v 21（macOS）
+  # 返回：可用的 JDK 21 JAVA_HOME；否则返回空
+  local cand
+  cand="${JAVA21_HOME-}"
+  if [ -n "${cand}" ] && [ -x "${cand}/bin/java" ]; then
+    if [ "$(java_major_version_of "${cand}/bin/java")" = "21" ]; then
+      printf '%s' "${cand}"
+      return 0
+    fi
+  fi
+
+  if command -v /usr/libexec/java_home >/dev/null 2>&1; then
+    cand="$(/usr/libexec/java_home -v 21 2>/dev/null || true)"
+    if [ -n "${cand}" ] && [ -x "${cand}/bin/java" ]; then
+      if [ "$(java_major_version_of "${cand}/bin/java")" = "21" ]; then
+        printf '%s' "${cand}"
+        return 0
+      fi
+    fi
+  fi
+
+  echo ""
 }
 
 _REPRO_MVNW_PATH=""
@@ -131,24 +196,44 @@ run_green_if_java21() {
   local major
   major="$(java_major_version)"
 
+  local java21_home
+  java21_home=""
+
   if [ "${major}" != "21" ]; then
+    java21_home="$(find_java21_home)"
+  fi
+
+  if [ "${major}" != "21" ] && [ -z "${java21_home}" ]; then
     say "=== Green 阶段（跳过）==="
-    say "[提示] 当前 Java 主版本为：${major:-未知}，不是 21。"
+    say "[提示] 当前 Java 主版本为：${major:-未知}，不是 21，且未找到可用的 JDK 21。"
     say "[提示] 本项目需要 Java 21 才能验证 green。"
-    say "[提示] 请按 README 设置 JDK 21 后重试：README.md"
-    say "[提示] 本次运行未验证 green（但 red 已完成）。"
+    say "[提示] 如本机已安装 JDK 21，可通过设置 JAVA21_HOME 指定其路径后重试。"
+    say "[提示] CI 已配置 temurin 21，会执行 ./mvnw -q test 提供 green 证据。"
     return 0
   fi
 
   say "=== Green 阶段（应通过）==="
-  say "[步骤] 使用 Java 21 运行 ./mvnw -q test。"
+  if [ "${major}" = "21" ]; then
+    say "[步骤] 使用当前 Java 21 运行 ./mvnw -q test。"
+  else
+    say "[步骤] 使用检测到的 JDK 21 运行 ./mvnw -q test。"
+    say "[信息] JAVA21_HOME=${java21_home}"
+  fi
 
   local out
-  out="$(./mvnw -q test 2>&1)"
-  local rc=$?
+  local rc
+
+  if [ "${major}" = "21" ]; then
+    out="$(./mvnw -q test 2>&1)"
+    rc=$?
+  else
+    out="$(JAVA_HOME="${java21_home}" PATH="${java21_home}/bin:${PATH}" ./mvnw -q test 2>&1)"
+    rc=$?
+  fi
 
   if [ ${rc} -eq 0 ]; then
     say "[结果] 退出码：0（通过）。"
+    say "[PASS] ./mvnw -q test 在 Java 21 下通过。"
   else
     say "[结果] 退出码：${rc}（未通过）。"
   fi
@@ -159,7 +244,19 @@ run_green_if_java21() {
 }
 
 main() {
+  local output_file
+  output_file="${REPRO_OUTPUT_FILE-${OUTPUT_FILE_DEFAULT}}"
+  mkdir -p "$(dirname "${output_file}")"
+
   need_clean_worktree
+
+  # 重要：先完成 clean worktree 检查，再写入文件，避免误报。
+  : >"${output_file}"
+  exec > >(tee -a "${output_file}") 2>&1
+
+  say "说明：以下为在本机实际执行 \`bash scripts/repro-task1-red-green.sh\` 的输出摘要（去除敏感信息）。"
+  say
+
   run_expected_red
   run_green_if_java21
 }

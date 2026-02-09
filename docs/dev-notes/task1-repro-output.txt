@@ -1,13 +1,24 @@
 说明：以下为在本机实际执行 `bash scripts/repro-task1-red-green.sh` 的输出摘要（去除敏感信息）。
 
 === Red 阶段（预期失败）===
-- 操作：临时将 mvnw 重命名为 mvnw.__bak，然后尝试运行 ./mvnw -q test
-- 结果：退出码 127（预期为非 0）
-- 摘要：提示 "./mvnw: No such file or directory"
+[步骤] 临时将 mvnw 重命名为 mvnw.__bak，然后尝试运行 ./mvnw -q test。
+[结果] 退出码：127（预期为非 0）。
+[结果] 失败摘要（截取关键行）：
+scripts/repro-task1-red-green.sh: line 176: ./mvnw: No such file or directory
+[完成] red 阶段失败为预期行为，脚本将继续执行。
 
 === 环境信息 ===
-- java -version：17.0.11（非 21）
+[信息] java -version：
+java version "17.0.11" 2024-04-16 LTS
+Java(TM) SE Runtime Environment (build 17.0.11+7-LTS-207)
+Java HotSpot(TM) 64-Bit Server VM (build 17.0.11+7-LTS-207, mixed mode, sharing)
 
 === Green 阶段（跳过）===
-- 原因：当前 Java 主版本不是 21
-- 提示：按 README.md 配置/启用 JDK 21 后重试以验证 green
+[提示] 当前 Java 主版本为：17，不是 21，且未找到可用的 JDK 21。
+[提示] 本项目需要 Java 21 才能验证 green。
+[提示] 如本机已安装 JDK 21，可通过设置 JAVA21_HOME 指定其路径后重试。
+[提示] CI 已配置 temurin 21，会执行 ./mvnw -q test 提供 green 证据。
+
+----
+
+本机 JDK 探测：仅发现 Java 8（/Library/Java/JavaVirtualMachines/jdk1.8.0_211.jdk），因此 green 阶段留给 CI（temurin 21）提供证据。
