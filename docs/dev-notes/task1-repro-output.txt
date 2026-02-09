@@ -1,0 +1,13 @@
+说明：以下为在本机实际执行 `bash scripts/repro-task1-red-green.sh` 的输出摘要（去除敏感信息）。
+
+=== Red 阶段（预期失败）===
+- 操作：临时将 mvnw 重命名为 mvnw.__bak，然后尝试运行 ./mvnw -q test
+- 结果：退出码 127（预期为非 0）
+- 摘要：提示 "./mvnw: No such file or directory"
+
+=== 环境信息 ===
+- java -version：17.0.11（非 21）
+
+=== Green 阶段（跳过）===
+- 原因：当前 Java 主版本不是 21
+- 提示：按 README.md 配置/启用 JDK 21 后重试以验证 green
