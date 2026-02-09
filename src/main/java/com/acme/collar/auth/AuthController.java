@@ -3,7 +3,6 @@ package com.acme.collar.auth;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,14 +21,14 @@ class AuthController {
   }
 
   @PostMapping("/sms/send")
-  ResponseEntity<Void> sendSms(@Valid @RequestBody SmsSendRequest req) {
-    authService.sendSmsCode(req.phone());
-    return ResponseEntity.ok().build();
+  SmsSendResponse sendSms(@Valid @RequestBody SmsSendRequest req) {
+    var result = authService.sendSmsCodeWithChallenge(req.phone());
+    return new SmsSendResponse(result.challengeId(), result.ttl().toSeconds());
   }
 
   @PostMapping("/login/sms")
   AuthResponse loginBySms(@Valid @RequestBody SmsLoginRequest req) {
-    return authService.loginWithSms(req.phone(), req.code());
+    return authService.loginWithSms(req.challengeId(), req.phone(), req.code());
   }
 
   @PostMapping("/login/password")
@@ -42,7 +41,10 @@ class AuthController {
           @Pattern(regexp = "^1\\d{10}$", message = "手机号格式不正确")
           String phone) {}
 
+  record SmsSendResponse(String challengeId, long ttlSeconds) {}
+
   record SmsLoginRequest(
+      @NotBlank(message = "challengeId 不能为空") String challengeId,
       @NotBlank(message = "手机号不能为空")
           @Pattern(regexp = "^1\\d{10}$", message = "手机号格式不正确")
           String phone,

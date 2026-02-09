@@ -21,12 +21,12 @@ class AuthService {
     this.jwtService = jwtService;
   }
 
-  void sendSmsCode(String phone) {
-    smsService.sendLoginCode(phone);
+  SmsService.SendResult sendSmsCodeWithChallenge(String phone) {
+    return smsService.sendLoginCode(phone);
   }
 
-  AuthResponse loginWithSms(String phone, String code) {
-    smsService.verifyLoginCode(phone, code);
+  AuthResponse loginWithSms(String challengeId, String phone, String code) {
+    smsService.verifyLoginCode(challengeId, phone, code);
 
     User user = userRepository.findByPhone(phone);
     if (user == null) {

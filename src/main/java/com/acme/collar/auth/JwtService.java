@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.Date;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,8 +23,18 @@ public class JwtService {
   private final Clock clock;
 
   public JwtService(
-      @Value("${security.jwt.secret:dev-only-secret-please-change-please-change-dev-only}") String secret,
+      @Value("${security.jwt.secret:}") String secret,
+      Environment env,
       @Value("${security.jwt.access-ttl:PT2H}") Duration accessTtl) {
+    if (secret == null || secret.isBlank()) {
+      if (env.acceptsProfiles("test")) {
+        // 测试环境固定 secret，避免依赖外部配置。
+        secret = "test-only-jwt-secret-please-change-32bytes-min";
+      } else {
+        throw new IllegalStateException("缺少配置 security.jwt.secret（非 test profile 必须配置）");
+      }
+    }
+
     // v1：用配置字符串生成 HMAC key。
     // 注意：JJWT 对 HS256 要求 key 至少 256 bits（32 bytes）。若 secret 过短，这里用 SHA-256 派生固定长度 key。
     byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
