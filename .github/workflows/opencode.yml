@@ -30,4 +30,4 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: OpenCode Zen/MiniMax M2.1 Free
+          model: opencode/big-pickle
